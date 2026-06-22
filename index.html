@@ -1678,15 +1678,15 @@ function buildGChatLog(dt){
 function renderMembers(){
   archiveBannerUpdate();
   let h='';
-  [{part:'tl',label:'팀장'},{part:'md',label:'MD 파트'},{part:'ct',label:'콘텐츠 파트'}].forEach(s=>{
+  [{part:'tl',label:'팀장'},{part:'p1',label:'생산1팀'},{part:'p2',label:'생산2팀'},{part:'qc',label:'품질관리'}].forEach(s=>{
     const ms=CQ().members.filter(m=>m.part===s.part);if(!ms.length)return;
-    h+=`<div class="part-section-label ${s.part}">${s.label}</div>`;
-    ms.forEach(m=>{const p=avgP(m);
+    h+=`<div class="part-section-label ${s.part}" style="font-size:11px;font-weight:700;color:var(--ink3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;padding:14px 16px 6px;border-top:1px solid var(--border);">${s.label}</div>`;
+    ms.forEach(m=>{
       h+=`<div class="msi ${selMid===m.id?'active':''}" onclick="selMember(${m.id})">
-        <span class="av av-sm style="${avStyle(m.part)}">${ini(m.name)}</span>
+        <span class="av av-sm" style="${avStyle(m.part)}">${ini(m.name)}</span>
         <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.name}${m.isMe?'<span class="me-tag">나</span>':''}</div>
         <div style="font-size:12px;color:var(--ink3);margin-top:1px;">${m.role}</div></div>
-        <div style="font-size:12px;font-family:var(--mono);font-weight:600;color:${progColor(p)};">${p}%</div></div>`;
+      </div>`;
     });
   });
   document.getElementById('m-sidebar-list').innerHTML=h;
@@ -1696,39 +1696,33 @@ function renderMembers(){
 function selMember(id){selMid=id;if(curView==='members')renderMembers();else nav('members');}
 function renderMDetail(id){
   const m=CQ().members.find(x=>x.id===id);if(!m)return;
-  const p=avgP(m);const ptC=PC[m.part]||PC.tl;let oh='';
-  m.okrs.forEach(o=>{const oc=progColor(o.progress);let sh='';
-    (o.subOkrs||[]).forEach(s=>{const sc=progColor(s.progress);
-      sh+=`<div class="soi" onclick="openEditSokr(${id},${o.id},${s.id})">
-        <div class="sot"><span style="color:var(--ink3);margin-right:5px;">└</span>${s.title}
-        ${s.note?`<div style="font-size:11px;color:var(--ink3);margin-top:2px;">${s.note}</div>`:''}</div>
-        <div class="sop"><div class="pb" style="height:4px;"><div class="pf" style="width:${s.progress}%;background:${sc};height:4px;"></div></div>
-        <div style="font-size:11px;font-family:var(--mono);font-weight:600;color:${sc};text-align:right;margin-top:2px;">${s.progress}%</div></div>
-        <span class="badge b-${s.status}" style="margin-left:8px;">${sl(s.status)}</span></div>`;
-    });
-    sh+=`<div style="padding:10px 16px 12px 30px;"><button class="btn bxs" onclick="openAddSokr(${id},${o.id})">+ 하위 OKR 추가</button></div>`;
-    oh+=`<div class="okr-item"><div class="okr-header" onclick="openEditOkr(${id},${o.id})">
-      <div style="flex:1;"><div class="okr-title">${o.title}</div>
-      ${o.note?`<div style="font-size:12px;color:var(--ink3);margin-top:3px;">${o.note}</div>`:''}</div>
-      <div class="okr-pa"><div class="pb" style="height:6px;"><div class="pf" style="width:${o.progress}%;background:${oc};height:6px;"></div></div>
-      <div style="font-size:11px;font-family:var(--mono);font-weight:600;color:${oc};text-align:right;margin-top:3px;">${o.progress}%</div></div>
-      <span class="badge b-${o.status}" style="margin-left:10px;">${sl(o.status)}</span></div>
-      <div class="sol">${sh}</div></div>`;
-  });
-  oh+=`<button class="btn" onclick="openAddOkr(${id})" style="margin-top:10px;font-size:13px;">+ OKR 추가</button>`;
+  const ptC=PC[m.part]||PC.tl;
   const ptag=`<span style="font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;background:${ptC.bg};color:${ptC.col};">${partLabel(m.part)}</span>`;
+  const memo=m.memo||'';
   document.getElementById('m-detail').innerHTML=`
     <div class="mdh"><div class="mdi">
       <span class="mda av-lg" style="${avStyle(m.part)}">${ini(m.name)}</span>
-      <div><div style="font-size:17px;font-weight:700;display:flex;align-items:center;gap:10px;">${m.name} ${ptag}</div>
+      <div><div style="font-size:17px;font-weight:700;display:flex;align-items:center;gap:10px;">${m.name}${m.isMe?'<span class="me-tag">나</span>':''} ${ptag}</div>
       <div style="font-size:13px;color:var(--ink3);margin-top:4px;">${m.role}</div></div></div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="text-align:right;">
-          <div style="font-family:var(--serif);font-size:28px;color:${progColor(p)}">${p}%</div>
-          <div style="font-size:11px;font-weight:700;color:var(--ink3);font-family:var(--mono);">평균 진척도</div></div>
+      <div style="display:flex;gap:8px;">
         <button class="btn bs" onclick="openEditMember(${id})">편집</button>
-        <button class="btn bs bd" onclick="delMember(${id})">삭제</button></div></div>
-    <div class="okr-list">${oh}</div>`;
+        <button class="btn bs bd" onclick="delMember(${id})">삭제</button>
+      </div>
+    </div>
+    <div style="padding:20px 24px;">
+      <div style="font-size:12px;font-weight:700;color:var(--ink3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">팀원 메모</div>
+      <textarea id="member-memo-${id}" 
+        style="width:100%;min-height:180px;padding:14px;font-size:13px;font-family:var(--sans);color:var(--ink);background:var(--paper);border:1px solid var(--border);border-radius:6px;resize:vertical;line-height:1.7;outline:none;"
+        placeholder="팀원에 대한 메모를 자유롭게 입력하세요&#10;예: 담당 업무, 특이사항, 연락처 등"
+        onblur="saveMemberMemo(${id})">${memo}</textarea>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;">입력란 밖을 클릭하면 자동 저장됩니다</div>
+    </div>`;
+}
+function saveMemberMemo(id){
+  const m=CQ().members.find(x=>x.id===id);if(!m)return;
+  const el=document.getElementById('member-memo-'+id);if(!el)return;
+  m.memo=el.value;
+  saveStore();
 }
 
 // ══════════════════════════════════════
@@ -2403,7 +2397,7 @@ function saveSettings(){CQ().teamName=document.getElementById('s-team').value.tr
 
 function openAddMember(){document.getElementById('mo-member-title').textContent='팀원 추가';document.getElementById('me-id').value='';document.getElementById('me-name').value='';document.getElementById('me-role').value='';document.getElementById('me-part').value='md';document.getElementById('me-isme').checked=false;om('mo-member');}
 function openEditMember(id){const m=CQ().members.find(x=>x.id===id);if(!m)return;document.getElementById('mo-member-title').textContent='팀원 편집';document.getElementById('me-id').value=id;document.getElementById('me-name').value=m.name;document.getElementById('me-role').value=m.role;document.getElementById('me-part').value=m.part;document.getElementById('me-isme').checked=m.isMe;om('mo-member');}
-function saveMember(){const eid=parseInt(document.getElementById('me-id').value);const name=document.getElementById('me-name').value.trim();const role=document.getElementById('me-role').value.trim();const part=document.getElementById('me-part').value;const isMe=document.getElementById('me-isme').checked;if(!name)return alert('이름을 입력해주세요');if(eid){const m=CQ().members.find(x=>x.id===eid);if(m){m.name=name;m.role=role;m.part=part;m.isMe=isMe;}}else{const nid=Date.now();CQ().members.push({id:nid,name,role,part,isMe,okrs:[],checkins:[]});selMid=nid;}saveStore();cm('mo-member');renderMembers();}
+function saveMember(){const eid=parseInt(document.getElementById('me-id').value);const name=document.getElementById('me-name').value.trim();const role=document.getElementById('me-role').value.trim();const part=document.getElementById('me-part').value;const isMe=document.getElementById('me-isme').checked;if(!name)return alert('이름을 입력해주세요');if(eid){const m=CQ().members.find(x=>x.id===eid);if(m){m.name=name;m.role=role;m.part=part;m.isMe=isMe;}}else{const nid=Date.now();CQ().members.push({id:nid,name,role,part,isMe,okrs:[],checkins:[],memo:''});selMid=nid;}saveStore();cm('mo-member');renderMembers();}
 function delMember(id){if(!confirm('삭제하시겠습니까?'))return;CQ().members=CQ().members.filter(m=>m.id!==id);if(selMid===id){selMid=null;document.getElementById('m-detail').innerHTML='<div class="es"><div class="ei">←</div><div>팀원을 선택하세요</div></div>';}saveStore();renderMembers();}
 
 function openAddOkr(mid){document.getElementById('mo-okr-title').textContent='OKR 추가';document.getElementById('oe-mid').value=mid;document.getElementById('oe-id').value='';document.getElementById('oe-title').value='';document.getElementById('oe-prog').value=0;document.getElementById('oe-pdis').textContent='0';document.getElementById('oe-status').value='on_track';document.getElementById('oe-note').value='';document.getElementById('oe-del').style.display='none';om('mo-okr');}
