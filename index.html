@@ -1249,26 +1249,8 @@ function renderDash(){
   const delEl=document.getElementById('delayed-list');if(delEl)delEl.innerHTML=dh;
 
   // recent-ci removed
-  let ch='';
-  else allCi.slice(0,4).forEach(c=>{
-    ch+=`<div class="di"><div class="dc">
-      <div class="dm">${c.mn} · ${c.date} · <span style="font-weight:700;color:${tc2[c.type]||'var(--ink3)'};">${tl2[c.type]||c.type}</span></div>
-      <div class="dt" style="font-weight:400;font-size:13px;margin-top:3px;line-height:1.5;">${c.note.slice(0,85)}${c.note.length>85?'…':''}</div>
-    </div></div>`;
-  });
-  // recent-ci removed
 
-  if(okrChart)okrChart.destroy();
-  const vals=ms.map(m=>avgP(m));
-  const bgs=ms.map(m=>{const c=PC[m.part]||PC.tl;return c.bg.replace('.12)',',.55)');});
-  const bds=ms.map(m=>(PC[m.part]||PC.tl).col);
-  okrChart=new Chart(ctx,{type:'bar',data:{labels:ms.map(m=>ini(m.name)),datasets:[{data:vals,backgroundColor:bgs,borderColor:bds,borderWidth:2,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}%`}}},
-      scales:{x:{grid:{color:'rgba(26,24,20,.06)'},ticks:{color:'#5A544A',font:{size:11,weight:'600',family:'Pretendard'}}},
-        y:{min:0,max:100,grid:{color:'rgba(26,24,20,.06)'},ticks:{color:'#5A544A',font:{size:11,family:'JetBrains Mono'},callback:v=>v+'%'}}}}});
 
-  renderDashStandupWidget();
-  renderDashTaskWidget();
 }
 
 // ══════════════════════════════════════
