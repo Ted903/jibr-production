@@ -1197,7 +1197,7 @@ function nav(v){
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  const mi={dashboard:0,standup:1,'standup-log':2,tasks:3,history:4,report:5};
+  const mi={dashboard:0,standup:1,'standup-log':2,members:3,tasks:4,history:5,report:6};
   document.querySelectorAll('.nav-item')[mi[v]??0].classList.add('active');
   curView=v;renderV(v);
 }
@@ -1205,6 +1205,7 @@ function renderV(v){
   if(v==='dashboard')renderDash();
   if(v==='standup')renderStandup();
   if(v==='standup-log')renderLog();
+  if(v==='members')renderMembers();
   if(v==='tasks')renderTasks();
   if(v==='history')renderHistory();
   if(v==='report')genReport();
