@@ -759,6 +759,7 @@ select.fi{cursor:pointer;}
       </div>
       <div class="fg"><label class="fl">직급</label>
         <select class="fi" id="me-rank">
+          <option value="0">본부장</option>
           <option value="1">팀장</option>
           <option value="2">파트장</option>
           <option value="3" selected>매니저</option>
@@ -1195,7 +1196,7 @@ function renderDashStandupWidget(){
   const td=todayStr();const sd=CQ().standups[td];const el=document.getElementById('dash-standup-widget');
   if(!sd||!sd.todos||!sd.todos.length){el.innerHTML=`<div style="padding:16px 0;text-align:center;"><div style="font-size:13px;color:var(--ink3);margin-bottom:10px;">오늘 아침 회의 기록이 없습니다</div><button class="btn bp bs" onclick="nav('standup')">아침 회의 시작하기</button></div>`;return;}
   let h='';
-  CQ().members.forEach(m=>{
+  sortedMembers.forEach(m=>{
     const todos=sd.todos.filter(t=>t.mid===m.id);if(!todos.length)return;
     const done=todos.filter(t=>t.done).length;
     const highT=todos.filter(t=>t.prio==='high');
@@ -1313,7 +1314,17 @@ function renderStandup(){
   const badge=document.getElementById('sd-saved-badge');badge.style.display=sd.saved?'inline-flex':'none';
 
   let grid='';
-  CQ().members.forEach(m=>{
+  // 직급순 정렬 (본부장→팀장→파트장→매니저)
+  const rankLabel2={0:'본부장',1:'팀장',2:'파트장',3:'매니저'};
+  const sortedMembers=[...CQ().members].sort((a,b)=>(a.rank||3)-(b.rank||3));
+  let lastRank=null;
+  sortedMembers.forEach(m=>{
+    const curRank=m.rank||3;
+    if(curRank!==lastRank){
+      if(lastRank!==null) grid+=`</div>`;
+      grid+=`<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--ink3);font-family:var(--mono);letter-spacing:.06em;padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">${rankLabel2[curRank]||'매니저'}</div><div style="display:contents;">`;
+      lastRank=curRank;
+    }
     const pc2=PC[m.part]||PC.tl;
     const todos=(sd.todos||[]).filter(t=>t.mid===m.id);
     const keyTasks=(sd.keyTasks&&sd.keyTasks[m.id])||[];
@@ -1386,6 +1397,7 @@ function renderStandup(){
       </div>
     </div>`;
   });
+  if(lastRank!==null) grid+=`</div>`;
   document.getElementById('standup-grid').innerHTML=grid;
 }
 
@@ -1400,7 +1412,7 @@ function saveMemoDebounced(mid){clearTimeout(memoTimer[mid]);memoTimer[mid]=setT
 function saveMemo(mid){const el=document.getElementById(`memo-${mid}`);if(!el)return;const sd=getStandup(curStandupDate);if(!sd.memo)sd.memo={};sd.memo[mid]=el.innerText||'';saveStore();}
 
 function finishMeeting(){
-  CQ().members.forEach(m=>{const el=document.getElementById(`memo-${m.id}`);if(el){const sd=getStandup(curStandupDate);if(!sd.memo)sd.memo={};sd.memo[m.id]=el.innerText||'';}});
+  sortedMembers.forEach(m=>{const el=document.getElementById(`memo-${m.id}`);if(el){const sd=getStandup(curStandupDate);if(!sd.memo)sd.memo={};sd.memo[m.id]=el.innerText||'';}});
   const sd=getStandup(curStandupDate);sd.saved=true;saveStore();renderStandup();
   alert(`${formatDate(curStandupDate)} 회의가 저장되었습니다.`);
 }
@@ -1491,7 +1503,7 @@ function renderLogDetail(dt){
     <div style="font-family:var(--mono);font-size:11px;color:var(--ink3);margin-top:4px;">${weekday(dt)}${sd.saved?' · ✓ 저장된 회의':' · 미저장'}</div></div>
     <button class="btn bp bs" onclick="copyDayLog('${dt}')">⎘ 구글챗 복사</button>
   </div><div style="padding:20px 24px;">`;
-  CQ().members.forEach(m=>{
+  sortedMembers.forEach(m=>{
     const todos=(sd.todos||[]).filter(t=>t.mid===m.id);const keyTasks=(sd.keyTasks&&sd.keyTasks[m.id])||[];const blockers=(sd.blockers&&sd.blockers[m.id])||[];const memo=(sd.memo&&sd.memo[m.id])||'';
     if(!todos.length&&!keyTasks.length&&!blockers.length&&!memo)return;
     const pc2=PC[m.part]||PC.tl;
@@ -1612,10 +1624,10 @@ function renderMembers(){
   let h='';
   // 직급순(rank) 정렬 후 부서별 그룹
   const sorted=[...CQ().members].sort((a,b)=>(a.rank||3)-(b.rank||3));
-  const rankLabel={1:'팀장',2:'파트장',3:'매니저'};
+  const rankLabel={0:'본부장',1:'팀장',2:'파트장',3:'매니저'};
   const parts=[...new Set(sorted.map(m=>m.part||'미지정'))];
   // 직급별로 묶어서 표시
-  [1,2,3].forEach(rank=>{
+  [0,1,2,3].forEach(rank=>{
     const rms=sorted.filter(m=>(m.rank||3)===rank);if(!rms.length)return;
     h+=`<div style="font-size:10px;font-weight:700;color:var(--ink3);font-family:var(--mono);padding:12px 16px 4px;letter-spacing:.06em;border-top:1px solid var(--border);">${rankLabel[rank]}</div>`;
     rms.forEach(m=>{
