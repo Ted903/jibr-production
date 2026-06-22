@@ -755,7 +755,7 @@ select.fi{cursor:pointer;}
       <div class="fg"><label class="fl">이름</label><input class="fi" id="me-name"></div>
       <div class="fg"><label class="fl">역할 / 직책</label><input class="fi" id="me-role"></div>
       <div class="fg"><label class="fl">파트</label>
-        <select class="fi" id="me-part"><option value="tl">팀장</option><option value="p1">생산1팀</option><option value="p2">생산2팀</option><option value="qc">품질관리</option></select>
+        <input class="fi" id="me-part" placeholder="예: 생산1팀, 품질관리, 팀장 등">
       </div>
       <div class="fg"><label style="display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer;font-weight:500;"><input type="checkbox" id="me-isme"> 나 (팀장) 표시</label></div>
     </div>
@@ -2320,7 +2320,7 @@ document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.
 function openSettings(){document.getElementById('s-team').value=CQ().teamName;om('mo-settings');}
 function saveSettings(){CQ().teamName=document.getElementById('s-team').value.trim()||CQ().teamName;saveStore();cm('mo-settings');renderDash();}
 
-function openAddMember(){document.getElementById('mo-member-title').textContent='팀원 추가';document.getElementById('me-id').value='';document.getElementById('me-name').value='';document.getElementById('me-role').value='';document.getElementById('me-part').value='md';document.getElementById('me-isme').checked=false;om('mo-member');}
+function openAddMember(){document.getElementById('mo-member-title').textContent='팀원 추가';document.getElementById('me-id').value='';document.getElementById('me-name').value='';document.getElementById('me-role').value='';document.getElementById('me-part').value='';document.getElementById('me-isme').checked=false;om('mo-member');}
 function openEditMember(id){const m=CQ().members.find(x=>x.id===id);if(!m)return;document.getElementById('mo-member-title').textContent='팀원 편집';document.getElementById('me-id').value=id;document.getElementById('me-name').value=m.name;document.getElementById('me-role').value=m.role;document.getElementById('me-part').value=m.part;document.getElementById('me-isme').checked=m.isMe;om('mo-member');}
 function saveMember(){const eid=parseInt(document.getElementById('me-id').value);const name=document.getElementById('me-name').value.trim();const role=document.getElementById('me-role').value.trim();const part=document.getElementById('me-part').value;const isMe=document.getElementById('me-isme').checked;if(!name)return alert('이름을 입력해주세요');if(eid){const m=CQ().members.find(x=>x.id===eid);if(m){m.name=name;m.role=role;m.part=part;m.isMe=isMe;}}else{const nid=Date.now();CQ().members.push({id:nid,name,role,part,isMe,okrs:[],checkins:[],memo:''});selMid=nid;}saveStore();cm('mo-member');renderMembers();}
 function delMember(id){if(!confirm('삭제하시겠습니까?'))return;CQ().members=CQ().members.filter(m=>m.id!==id);if(selMid===id){selMid=null;document.getElementById('m-detail').innerHTML='<div class="es"><div class="ei">←</div><div>팀원을 선택하세요</div></div>';}saveStore();renderMembers();}
