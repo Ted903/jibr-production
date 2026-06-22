@@ -505,6 +505,7 @@ select.fi{cursor:pointer;}
     <div class="nav-item active" onclick="nav('dashboard')"><span class="nav-dot"></span> 대시보드</div>
     <div class="nav-item standup-nav" onclick="nav('standup')"><span class="nav-dot"></span> 아침 회의</div>
     <div class="nav-item" onclick="nav('standup-log')"><span class="nav-dot"></span> 회의 로그</div>
+    <div class="nav-item" onclick="nav('members')"><span class="nav-dot"></span> 팀원 관리</div>
 
     <div class="sb-label">업무 관리</div>
     <div class="nav-item" onclick="nav('tasks')"><span class="nav-dot"></span> 업무 트래커</div>
@@ -1028,59 +1029,7 @@ function saveTs(){const n=new Date();document.getElementById('last-saved').textC
 // ══════════════════════════════════════
 // 데이터 구조: { quarters: {[q]: {teamName, members, standups}}, activeQ }
 // ══════════════════════════════════════
-const SAMPLE_MEMBERS=[
-  {id:1,name:'나 (팀장)',role:'온라인팀 팀장',part:'tl',isMe:true,okrs:[
-    {id:101,title:'팀 전체 매출 목표 달성',progress:58,status:'on_track',note:'2파트 전환 과도기',subOkrs:[
-      {id:1011,title:'팀 월 매출 목표 100% 달성',progress:65,status:'on_track',note:''},
-      {id:1012,title:'팀원 OKR 달성률 평균 70% 이상',progress:50,status:'at_risk',note:'콘텐츠 파트 지원 필요'}
-    ]},
-    {id:102,title:'2파트 협업 프로세스 정착',progress:40,status:'at_risk',note:'표준 요청서 도입 지연',subOkrs:[
-      {id:1021,title:'MD↔콘텐츠 주간회의 100% 진행',progress:55,status:'on_track',note:''},
-      {id:1022,title:'표준 요청서 템플릿 도입',progress:25,status:'delayed',note:''}
-    ]}
-  ],checkins:[{id:1,date:'2025-04-14',type:'note',note:'전체 팀 Q2 OKR 공유 완료. 파트별 역할 재정리.'}]},
-  {id:2,name:'김민서',role:'자사몰 MD',part:'md',isMe:false,okrs:[
-    {id:201,title:'자사몰 매출 및 회원 성장',progress:72,status:'on_track',note:'',subOkrs:[
-      {id:2011,title:'자사몰 월 매출 전년 대비 20% 성장',progress:75,status:'on_track',note:''},
-      {id:2012,title:'신규 회원 월 500명 이상 확보',progress:68,status:'on_track',note:''}
-    ]},
-    {id:202,title:'자사몰 재구매율 및 LTV 개선',progress:45,status:'at_risk',note:'구독 기획 지연',subOkrs:[
-      {id:2021,title:'재구매율 35% → 42% 달성',progress:50,status:'at_risk',note:''},
-      {id:2022,title:'구독 상품 1종 론칭',progress:40,status:'delayed',note:'상품팀 협의 지연'}
-    ]}
-  ],checkins:[{id:1,date:'2025-04-10',type:'feedback',note:'재구매 전환 약함. 구독 기획 일정 구체화 필요.'}]},
-  {id:3,name:'이준혁',role:'외부몰 MD',part:'md',isMe:false,okrs:[
-    {id:301,title:'쿠팡·컬리 매출 성장 및 채널 확장',progress:80,status:'on_track',note:'',subOkrs:[
-      {id:3011,title:'쿠팡·컬리 합산 월 매출 목표 달성',progress:82,status:'on_track',note:''},
-      {id:3012,title:'네이버 스마트스토어 신규 입점',progress:75,status:'on_track',note:''}
-    ]},
-    {id:302,title:'플랫폼 광고 ROAS 최적화',progress:60,status:'on_track',note:'',subOkrs:[
-      {id:3021,title:'쿠팡 CPC 광고 ROAS 400% 이상',progress:65,status:'on_track',note:''},
-      {id:3022,title:'컬리 디스플레이 CTR 2% 달성',progress:55,status:'at_risk',note:'소재 개선 필요'}
-    ]}
-  ],checkins:[{id:1,date:'2025-04-11',type:'praise',note:'쿠팡 기획전 입찰 전략 탁월.'}]},
-  {id:4,name:'박소현',role:'콘텐츠 마케터',part:'ct',isMe:false,okrs:[
-    {id:401,title:'브랜드 콘텐츠 자산 구축 및 SNS 성장',progress:68,status:'on_track',note:'',subOkrs:[
-      {id:4011,title:'인스타그램 팔로워 월 500명 순증',progress:70,status:'on_track',note:''},
-      {id:4012,title:'SNS 콘텐츠 주 4회 이상 게시',progress:80,status:'on_track',note:''},
-      {id:4013,title:'브랜드 블로그 월 방문자 5,000명',progress:55,status:'at_risk',note:''}
-    ]},
-    {id:402,title:'MD 요청 콘텐츠 브랜드 자산화',progress:35,status:'delayed',note:'요청 과부하',subOkrs:[
-      {id:4021,title:'MD 요청 콘텐츠 납기율 90% 이상',progress:45,status:'delayed',note:''},
-      {id:4022,title:'콘텐츠 가이드라인 문서 완성',progress:25,status:'delayed',note:''}
-    ]}
-  ],checkins:[{id:1,date:'2025-04-09',type:'concern',note:'MD 요청 병목 발생. 표준 요청서 빠른 도입 필요.'}]},
-  {id:5,name:'최지훈',role:'PD',part:'ct',isMe:false,okrs:[
-    {id:501,title:'콘텐츠 제작 납기 및 품질 관리',progress:75,status:'on_track',note:'',subOkrs:[
-      {id:5011,title:'제작 납기율 95% 이상',progress:80,status:'on_track',note:''},
-      {id:5012,title:'촬영 취소율 5% 이하',progress:70,status:'on_track',note:''}
-    ]},
-    {id:502,title:'제작 효율 및 Express Lane 운영',progress:50,status:'at_risk',note:'',subOkrs:[
-      {id:5021,title:'Express Lane 처리 평균 1일 이내',progress:55,status:'at_risk',note:'기준 미정의'},
-      {id:5022,title:'재촬영 요청률 10% 이하',progress:45,status:'at_risk',note:'브리핑 부족'}
-    ]}
-  ],checkins:[]}
-];
+const SAMPLE_MEMBERS=[];
 
 const DEF_STORE={
   activeQ:'2026 Q2',
@@ -1269,17 +1218,13 @@ function renderDash(){
   document.getElementById('ph-q-badge').textContent=STORE.activeQ;
   const ms=CQ().members;
   const avg=ms.length?Math.round(ms.reduce((s,m)=>s+avgP(m),0)/ms.length):0;
-  const del=delayed(ms);
-  const mdA=byPart(ms,'md').length?Math.round(byPart(ms,'md').reduce((s,m)=>s+avgP(m),0)/byPart(ms,'md').length):0;
-  const ctA=byPart(ms,'ct').length?Math.round(byPart(ms,'ct').reduce((s,m)=>s+avgP(m),0)/byPart(ms,'ct').length):0;
-
   const totalTasks=(CQ().tasks||[]).length;
   const doneTasks=(CQ().tasks||[]).filter(t=>t.status==='done').length;
-  const todayTodos=Object.values((CQ().standups||{})).filter(s=>s&&s.todos&&s.todos.some(t=>!t.done)).length;
+  const atRiskTasks=(CQ().tasks||[]).filter(t=>t.status==='at_risk'||t.status==='delayed');
   document.getElementById('stats-grid').innerHTML=`
     <div class="stat-card"><div class="sl">팀원 수</div><div class="sv">${ms.length}<span>명</span></div><div class="sh">등록된 팀원</div></div>
     <div class="stat-card"><div class="sl">전체 업무</div><div class="sv">${totalTasks}<span>건</span></div><div class="sh">완료 ${doneTasks}건</div></div>
-    <div class="stat-card"><div class="sl">주목 필요 항목</div><div class="sv" style="color:${del.length>0?'var(--accent)':'var(--olive)'}">${del.length}<span>개</span></div><div class="sh">지연 + 주의 합계</div></div>`;
+    <div class="stat-card"><div class="sl">주목 필요 항목</div><div class="sv" style="color:${atRiskTasks.length>0?'var(--accent)':'var(--olive)'}">${atRiskTasks.length}<span>개</span></div><div class="sh">지연 + 주의 합계</div></div>`;
 
   // 팀원 현황 (이름+역할만 표시)
   const memberListEl=document.getElementById('md-progress-list');
@@ -1292,21 +1237,19 @@ function renderDash(){
   }
 
   let dh='';
-  if(!del.length)dh='<div style="padding:16px 0;text-align:center;color:var(--olive);font-size:13px;font-weight:600;">✓ 주목 필요 항목 없음</div>';
-  else del.slice(0,5).forEach(d=>{const pc2=PC[d.part]||PC.tl;
-    dh+=`<div class="di"><div class="dd" style="background:${d.status==='delayed'?'var(--accent)':'var(--gold)'}"></div>
-      <div class="dc"><div class="dt">${d.title}</div>
-      <div class="dm">${d.member} <span style="font-family:var(--mono);font-size:10px;font-weight:600;padding:1px 6px;background:${pc2.bg};color:${pc2.col};border-radius:2px;">${partLabel(d.part)}</span> · ${d.progress}% · <span class="badge b-${d.status}">${sl(d.status)}</span></div>
-      ${d.note?`<div style="font-size:12px;color:var(--ink3);margin-top:2px;">${d.note}</div>`:''}</div></div>`;
+  if(!atRiskTasks.length)dh='<div style="padding:16px 0;text-align:center;color:var(--olive);font-size:13px;font-weight:600;">✓ 주목 필요 항목 없음</div>';
+  else atRiskTasks.slice(0,5).forEach(t=>{
+    const m2=ms.find(x=>x.id===t.mid)||{name:'',part:'tl'};
+    const pc2=PC[m2.part]||PC.tl;
+    dh+=`<div class="di"><div class="dd" style="background:${t.status==='delayed'?'var(--accent)':'var(--gold)'}"></div>
+      <div class="dc"><div class="dt">${t.text||t.title||''}</div>
+      <div class="dm">${m2.name} <span style="font-family:var(--mono);font-size:10px;font-weight:600;padding:1px 6px;background:${pc2.bg};color:${pc2.col};border-radius:2px;">${partLabel(m2.part)}</span> · <span class="badge b-${t.status}">${sl(t.status)}</span></div>
+      </div></div>`;
   });
   const delEl=document.getElementById('delayed-list');if(delEl)delEl.innerHTML=dh;
 
-  let allCi=[];CQ().members.forEach(m=>(m.checkins||[]).forEach(c=>allCi.push({...c,mn:m.name,part:m.part})));
-  allCi.sort((a,b)=>b.date.localeCompare(a.date));
-  const tl2={feedback:'피드백',concern:'우려',praise:'칭찬',action:'액션',note:'메모'};
-  const tc2={feedback:'var(--md-col)',concern:'var(--accent)',praise:'var(--olive)',action:'var(--gold)',note:'var(--ink3)'};
+  // recent-ci removed
   let ch='';
-  if(!allCi.length)ch='<div style="padding:16px 0;text-align:center;font-size:13px;color:var(--ink3);">체크인 기록 없음</div>';
   else allCi.slice(0,4).forEach(c=>{
     ch+=`<div class="di"><div class="dc">
       <div class="dm">${c.mn} · ${c.date} · <span style="font-weight:700;color:${tc2[c.type]||'var(--ink3)'};">${tl2[c.type]||c.type}</span></div>
