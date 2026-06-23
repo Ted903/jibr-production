@@ -255,6 +255,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .todo-text.done-text{color:var(--ink3);text-decoration:line-through;}
 .todo-del{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:13px;opacity:0;transition:opacity .15s;padding:0 3px;flex-shrink:0;}
 .todo-item:hover .todo-del{opacity:1;}
+.todo-edit-input{width:100%;border:none;border-bottom:1.5px solid var(--accent);background:transparent;font-size:13px;font-family:var(--sans);color:var(--ink);padding:2px 0;outline:none;line-height:1.55;}
+.todo-edit-actions{display:flex;gap:6px;margin-top:6px;}
 
 /* 메모 박스 */
 .memo-box{background:var(--paper);border:1px solid var(--border-soft);border-radius:3px;padding:10px 12px;font-size:13px;line-height:1.7;color:var(--ink2);white-space:pre-wrap;cursor:text;min-height:44px;outline:none;transition:border-color .15s;}
@@ -1412,9 +1414,10 @@ function renderStandup(){
       todoHtml+=`<div style="font-family:var(--sans);font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.04em;text-transform:uppercase;margin:10px 0 5px;">${pn[p]}</div>`;
       pt.forEach(t=>{
         const carriedTag=t._carried?`<span style="font-size:10px;background:var(--paper2);color:var(--ink3);padding:1px 5px;border-radius:3px;margin-left:5px;font-family:var(--mono);">이월</span>`:'';
-        todoHtml+=`<div class="todo-item">
+        todoHtml+=`<div class="todo-item" id="todo-item-${t.id}">
           <div class="todo-cb ${t.done?'done':''}" onclick="toggleTodo('${curStandupDate}',${t.id})"></div>
-          <div class="todo-text ${t.done?'done-text':''}">${t.text}${carriedTag}${t.okr?`<div style="font-size:11px;color:var(--ink3);margin-top:2px;">↳ ${t.okr}</div>`:''}</div>
+          <div class="todo-text ${t.done?'done-text':''}" id="todo-text-${t.id}">${t.text}${carriedTag}${t.okr?`<div style="font-size:11px;color:var(--ink3);margin-top:2px;">↳ ${t.okr}</div>`:''}</div>
+          <button class="todo-del" onclick="startEditTodo('${curStandupDate}',${t.id})" title="수정">✎</button>
           <button class="todo-del" onclick="delTodo('${curStandupDate}',${t.id})">✕</button>
         </div>`;
       });
@@ -1424,9 +1427,10 @@ function renderStandup(){
     let keyTaskHtml='';
     keyTasks.forEach(k=>{
       const carriedTag=k._carried?`<span style="font-size:10px;background:var(--paper2);color:var(--ink3);padding:1px 5px;border-radius:3px;margin-left:5px;font-family:var(--mono);">이월</span>`:'';
-      keyTaskHtml+=`<div class="todo-item">
+      keyTaskHtml+=`<div class="todo-item" id="keytask-item-${k.id}">
         <div class="todo-cb ${k.done?'done':''}" onclick="toggleKeyTask('${curStandupDate}',${m.id},${k.id})"></div>
-        <div class="todo-text ${k.done?'done-text':''}">${k.text}${carriedTag}</div>
+        <div class="todo-text ${k.done?'done-text':''}" id="keytask-text-${k.id}">${k.text}${carriedTag}</div>
+        <button class="todo-del" onclick="startEditKeyTask('${curStandupDate}',${m.id},${k.id})" title="수정">✎</button>
         <button class="todo-del" onclick="delKeyTask('${curStandupDate}',${m.id},${k.id})">✕</button>
       </div>`;
     });
@@ -1476,6 +1480,43 @@ function renderStandup(){
 function switchStandupDate(d){curStandupDate=d;renderStandup();}
 function toggleTodo(date,tid){const sd=getStandup(date);const t=sd.todos.find(x=>x.id===tid);if(t){t.done=!t.done;saveStore();renderStandup();renderDashStandupWidget();}}
 function delTodo(date,tid){const sd=getStandup(date);sd.todos=sd.todos.filter(t=>t.id!==tid);saveStore();renderStandup();}
+
+function startEditTodo(date,tid){
+  const sd=getStandup(date);
+  const t=sd.todos.find(x=>x.id===tid);if(!t)return;
+  const textEl=document.getElementById('todo-text-'+tid);if(!textEl)return;
+  const orig=t.text;
+  textEl.innerHTML=`<input class="todo-edit-input" id="todo-edit-input-${tid}" value="${orig.replace(/"/g,'&quot;')}" /><div class="todo-edit-actions"><button class="btn bp bxs" onclick="saveEditTodo('${date}',${tid})">저장</button><button class="btn bxs" onclick="cancelEditTodo(${tid})">취소</button></div>`;
+  const input=document.getElementById('todo-edit-input-'+tid);
+  if(input){input.focus();input.select();input.addEventListener('keydown',e=>{if(e.key==='Enter')saveEditTodo(date,tid);if(e.key==='Escape')renderStandup();});}
+}
+function saveEditTodo(date,tid){
+  const input=document.getElementById('todo-edit-input-'+tid);if(!input)return;
+  const newText=input.value.trim();if(!newText)return;
+  const sd=getStandup(date);
+  const t=sd.todos.find(x=>x.id===tid);if(t){t.text=newText;t._carried=false;}
+  saveStore();renderStandup();
+}
+function cancelEditTodo(tid){renderStandup();}
+
+function startEditKeyTask(date,mid,kid){
+  const sd=getStandup(date);
+  const ks=(sd.keyTasks&&sd.keyTasks[mid])||[];
+  const k=ks.find(x=>x.id===kid);if(!k)return;
+  const textEl=document.getElementById('keytask-text-'+kid);if(!textEl)return;
+  const orig=k.text;
+  textEl.innerHTML=`<input class="todo-edit-input" id="keytask-edit-input-${kid}" value="${orig.replace(/"/g,'&quot;')}" /><div class="todo-edit-actions"><button class="btn bp bxs" onclick="saveEditKeyTask('${date}',${mid},${kid})">저장</button><button class="btn bxs" onclick="renderStandup()">취소</button></div>`;
+  const input=document.getElementById('keytask-edit-input-'+kid);
+  if(input){input.focus();input.select();input.addEventListener('keydown',e=>{if(e.key==='Enter')saveEditKeyTask(date,mid,kid);if(e.key==='Escape')renderStandup();});}
+}
+function saveEditKeyTask(date,mid,kid){
+  const input=document.getElementById('keytask-edit-input-'+kid);if(!input)return;
+  const newText=input.value.trim();if(!newText)return;
+  const sd=getStandup(date);
+  const ks=(sd.keyTasks&&sd.keyTasks[mid])||[];
+  const k=ks.find(x=>x.id===kid);if(k){k.text=newText;k._carried=false;}
+  saveStore();renderStandup();
+}
 function delBlocker(date,mid,bid){const sd=getStandup(date);if(sd.blockers&&sd.blockers[mid])sd.blockers[mid]=sd.blockers[mid].filter(b=>b.id!==bid);saveStore();renderStandup();}
 
 function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
