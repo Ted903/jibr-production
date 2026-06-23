@@ -1052,6 +1052,15 @@ function loadStore(){
   // 항상 DEF_STORE로 시작 (Firebase가 로드되면 덮어씀)
   STORE=JSON.parse(JSON.stringify(DEF_STORE));
 }
+function updateStandupProgress(date,tid,val){
+  const sd=CQ().standups[date];if(!sd)return;
+  const t=(sd.todos||[]).find(x=>x.id===tid);if(t){t._progress=val;if(val===100)t.done=true;else if(val<100&&t.done)t.done=false;}
+}
+function updateKeyTaskProgress(date,mid,kid,val){
+  const sd=CQ().standups[date];if(!sd)return;
+  const ks=(sd.keyTasks&&sd.keyTasks[mid])||[];
+  const k=ks.find(x=>x.id===kid);if(k){k._progress=val;if(val===100)k.done=true;else if(val<100&&k.done)k.done=false;}
+}
 function saveStore(){
   // localStorage 백업 + Firebase 저장
   localStorage.setItem('jibr-production-v1',JSON.stringify(STORE));
@@ -1234,14 +1243,55 @@ function renderDash(){
     <div class="stat-card"><div class="sl">전체 업무</div><div class="sv">${totalTasks}<span>건</span></div><div class="sh">완료 ${doneTasks}건</div></div>
     <div class="stat-card"><div class="sl">주목 필요 항목</div><div class="sv" style="color:${atRiskTasks.length>0?'var(--accent)':'var(--olive)'}">${atRiskTasks.length}<span>개</span></div><div class="sh">지연 + 주의 합계</div></div>`;
 
-  // 팀원 현황 (이름+역할만 표시)
+  // 팀원현황 - 직급순 + 오늘 할일 우선순위별 요약
   const memberListEl=document.getElementById('md-progress-list');
   if(memberListEl){
-    const ms2=CQ().members||[];
-    memberListEl.innerHTML=ms2.length?ms2.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border);">
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">${m.name?m.name[0]:''}</div>
-      <div><div style="font-size:13px;font-weight:500;">${m.name||''}</div><div style="font-size:11px;color:var(--ink3);">${m.role||''}</div></div>
-    </div>`).join(''):'<div style="padding:16px 0;font-size:13px;color:var(--ink3);">팀원을 추가해주세요</div>';
+    const ms2=[...CQ().members].sort((a,b)=>(a.rank||3)-(b.rank||3));
+    const todaySd=CQ().standups[todayStr()]||{todos:[],keyTasks:{}};
+    const rkLabel={0:'본부장',1:'팀장',2:'파트장',3:'매니저'};
+    const prioIcon={high:'🔴',mid:'🟡',low:'🟢'};
+    const prioOrder=['high','mid','low'];
+    let mh='';
+    let lastRk=null;
+    ms2.forEach(m=>{
+      const rk=m.rank||3;
+      if(rk!==lastRk){
+        mh+=`<div style="font-size:10px;font-weight:700;color:var(--ink3);font-family:var(--mono);letter-spacing:.06em;padding:${lastRk===null?'8px':'14px'} 0 4px;${lastRk!==null?'border-top:1px solid var(--border);':''}">${rkLabel[rk]||'매니저'}</div>`;
+        lastRk=rk;
+      }
+      const todos=(todaySd.todos||[]).filter(t=>t.mid===m.id&&!t.done);
+      const keyTasks=(todaySd.keyTasks&&todaySd.keyTasks[m.id]||[]).filter(k=>!k.done);
+      let taskSummary='';
+      // 우선순위별 할 일
+      prioOrder.forEach(p=>{
+        const pt=todos.filter(t=>t.prio===p);
+        pt.slice(0,2).forEach(t=>{
+          taskSummary+=`<div style="display:flex;align-items:flex-start;gap:5px;font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.4;">
+            <span style="flex-shrink:0;margin-top:1px;">${prioIcon[p]}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.text}</span>
+          </div>`;
+        });
+      });
+      // 중요업무
+      keyTasks.slice(0,1).forEach(k=>{
+        taskSummary+=`<div style="display:flex;align-items:flex-start;gap:5px;font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.4;">
+          <span style="flex-shrink:0;margin-top:1px;">⭐</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k.text}</span>
+        </div>`;
+      });
+      if(!taskSummary&&todos.length===0&&keyTasks.length===0){
+        taskSummary=`<div style="font-size:11px;color:var(--ink3);margin-top:3px;">오늘 기록 없음</div>`;
+      }
+      mh+=`<div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <div style="width:26px;height:26px;border-radius:50%;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${m.name?m.name[0]:''}</div>
+          <div style="font-size:13px;font-weight:600;">${m.name||''}</div>
+          <div style="font-size:10px;color:var(--ink3);font-family:var(--mono);">${m.part||''}</div>
+        </div>
+        ${taskSummary}
+      </div>`;
+    });
+    memberListEl.innerHTML=ms2.length?mh:'<div style="padding:16px 0;font-size:13px;color:var(--ink3);">팀원을 추가해주세요</div>';
   }
 
   let dh='';
@@ -1714,20 +1764,25 @@ function rateLabel(r){return r===100?'완료':r>=75?'마무리':r>=50?'진행중
 function renderTasks(){
   // 사이드바 팀원 목록
   let sh='';
-  [{part:'tl',label:'팀장'},{part:'md',label:'MD 파트'},{part:'ct',label:'콘텐츠 파트'}].forEach(s=>{
-    const ms=CQ().members.filter(m=>m.part===s.part);if(!ms.length)return;
-    sh+=`<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;">${s.label}</div>`;
-    ms.forEach(m=>{
-      const week=getCurrentWeekKey(ttWeekOffset);
-      const wt=getWeekTasks(m.id,week);const dt=getDayTasks(m.id,ttSelDate);
-      const tasks=ttTab==='weekly'?wt:dt;
-      const avgR=tasks.length?Math.round(tasks.reduce((s,t)=>s+t.rate,0)/tasks.length):null;
-      sh+=`<div class="tt-member-item ${ttMid===m.id?'active':''}" onclick="selectTTMember(${m.id})">
-        <span class="av av-tt style="${avStyle(m.part)}">${ini(m.name)}</span>
-        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${m.name}</div><div style="font-size:11px;color:var(--ink3);">${m.role}</div></div>
-        ${avgR!==null?`<div style="font-size:11px;font-family:var(--mono);font-weight:700;color:${progColor(avgR)};">${avgR}%</div>`:''}
-      </div>`;
-    });
+  // 직급순 정렬
+  const ttRankLabel={0:'본부장',1:'팀장',2:'파트장',3:'매니저'};
+  const ttSorted=[...CQ().members].sort((a,b)=>(a.rank||3)-(b.rank||3));
+  let ttLastRank=null;
+  ttSorted.forEach(m=>{
+    const rk=m.rank||3;
+    if(rk!==ttLastRank){
+      sh+=`<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;${ttLastRank!==null?'border-top:1px solid var(--border);margin-top:4px;':''}">${ttRankLabel[rk]||'매니저'}</div>`;
+      ttLastRank=rk;
+    }
+    const week=getCurrentWeekKey(ttWeekOffset);
+    const wt=getWeekTasks(m.id,week);const dt=getDayTasks(m.id,ttSelDate);
+    const tasks=ttTab==='weekly'?wt:dt;
+    const avgR=tasks.length?Math.round(tasks.reduce((s,t)=>s+t.rate,0)/tasks.length):null;
+    sh+=`<div class="tt-member-item ${ttMid===m.id?'active':''}" onclick="selectTTMember(${m.id})">
+      <span class="av av-tt" style="${avStyle(m.part)}">${ini(m.name)}</span>
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${m.name}</div><div style="font-size:11px;color:var(--ink3);">${m.part||''} ${m.role?'· '+m.role:''}</div></div>
+      ${avgR!==null?`<div style="font-size:11px;font-family:var(--mono);font-weight:700;color:${progColor(avgR)};">${avgR}%</div>`:''}
+    </div>`;
   });
   document.getElementById('tt-member-list').innerHTML=sh;
   if(ttMid)renderTTMain();
@@ -1745,11 +1800,68 @@ function switchTaskTab(tab){
 function renderTTMain(){
   const m=CQ().members.find(x=>x.id===ttMid);if(!m)return;
   const pc=PC[m.part]||PC.tl;
+  // 아침회의 데이터에서 오늘/최근 할일 가져오기
+  const todaySd2=CQ().standups[todayStr()]||{todos:[],keyTasks:{}};
+  const mTodos=(todaySd2.todos||[]).filter(t=>t.mid===m.id);
+  const mKeyTasks=(todaySd2.keyTasks&&todaySd2.keyTasks[m.id])||[];
+  const prioIcon2={high:'🔴',mid:'🟡',low:'🟢'};
+  const prioOrder2=['high','mid','low'];
+
+  // 아침회의 할일을 업무 트래커에 진척도로 표시
+  let standupSection='';
+  if(mTodos.length>0||mKeyTasks.length>0){
+    standupSection+=`<div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;">📋 오늘 아침 회의 업무</div>
+        <div style="font-size:11px;color:var(--ink3);">${formatDate(todayStr())}</div>
+      </div>`;
+    prioOrder2.forEach(p=>{
+      const pt=mTodos.filter(t=>t.prio===p);
+      if(!pt.length)return;
+      const pn={high:'높음',mid:'중간',low:'낮음'};
+      standupSection+=`<div style="font-size:10px;font-weight:700;color:var(--ink3);font-family:var(--mono);letter-spacing:.05em;margin:10px 0 6px;">${prioIcon2[p]} ${pn[p]}</div>`;
+      pt.forEach(t=>{
+        const pct=t._progress||0;
+        const pc2=progColor(pct);
+        standupSection+=`<div style="margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div style="font-size:13px;${t.done?'text-decoration:line-through;color:var(--ink3);':''}">${t.text}</div>
+            <div style="font-size:11px;font-family:var(--mono);font-weight:700;color:${pc2};min-width:36px;text-align:right;">${pct}%</div>
+          </div>
+          <input type="range" min="0" max="100" step="5" value="${pct}"
+            style="width:100%;accent-color:${pc2};"
+            oninput="this.nextElementSibling.textContent=this.value+'%';updateStandupProgress('${todayStr()}',${t.id},parseInt(this.value))"
+            onchange="saveStore()">
+          <div style="font-size:10px;color:var(--ink3);text-align:right;margin-top:2px;">${pct===0?'미시작':pct===100?'완료':'진행중'}</div>
+        </div>`;
+      });
+    });
+    if(mKeyTasks.length){
+      standupSection+=`<div style="font-size:10px;font-weight:700;color:var(--ink3);font-family:var(--mono);letter-spacing:.05em;margin:10px 0 6px;">⭐ 중요 업무</div>`;
+      mKeyTasks.forEach(k=>{
+        const pct=k._progress||0;
+        const pc2=progColor(pct);
+        standupSection+=`<div style="margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div style="font-size:13px;${k.done?'text-decoration:line-through;color:var(--ink3);':''}">${k.text}</div>
+            <div style="font-size:11px;font-family:var(--mono);font-weight:700;color:${pc2};min-width:36px;text-align:right;">${pct}%</div>
+          </div>
+          <input type="range" min="0" max="100" step="5" value="${pct}"
+            style="width:100%;accent-color:${pc2};"
+            oninput="this.nextElementSibling.textContent=this.value+'%';updateKeyTaskProgress('${todayStr()}',${m.id},${k.id},parseInt(this.value))"
+            onchange="saveStore()">
+          <div style="font-size:10px;color:var(--ink3);text-align:right;margin-top:2px;">${pct===0?'미시작':pct===100?'완료':'진행중'}</div>
+        </div>`;
+      });
+    }
+    standupSection+=`</div>`;
+  }
+
   let h=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:16px 20px;background:white;border:1px solid var(--border);border-radius:4px;">
-    <span class="av av-lg style="${avStyle(m.part)}">${ini(m.name)}</span>
-    <div style="flex:1;"><div style="font-size:17px;font-weight:700;">${m.name}</div><div style="font-size:12px;color:var(--ink3);">${m.role}</div></div>
+    <span class="av av-lg" style="${avStyle(m.part)}">${ini(m.name)}</span>
+    <div style="flex:1;"><div style="font-size:17px;font-weight:700;">${m.name}</div><div style="font-size:12px;color:var(--ink3);">${m.part||''} ${m.role?'· '+m.role:''}</div></div>
     <button class="btn bp bs" onclick="openAddTaskModal()">+ 업무 추가</button>
-  </div>`;
+  </div>${standupSection}`;
 
   if(ttTab==='weekly'){
     h+=renderWeeklyView(m);
