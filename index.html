@@ -1052,6 +1052,27 @@ function loadStore(){
   // 항상 DEF_STORE로 시작 (Firebase가 로드되면 덮어씀)
   STORE=JSON.parse(JSON.stringify(DEF_STORE));
 }
+
+// ── 할 일 체크 달성률 계산 ──────────────────────────
+function calcQuarterAchieve(qd){
+  // 분기 전체 standups에서 할 일 총수 / 완료수 계산
+  const standups=qd.standups||{};
+  let total=0,done=0;
+  Object.values(standups).forEach(sd=>{
+    (sd.todos||[]).forEach(t=>{total++;if(t.done)done++;});
+    Object.values(sd.keyTasks||{}).forEach(ks=>ks.forEach(k=>{total++;if(k.done)done++;}));
+  });
+  return total?Math.round(done/total*100):0;
+}
+function calcMemberAchieve(qd,mid){
+  const standups=qd.standups||{};
+  let total=0,done=0;
+  Object.values(standups).forEach(sd=>{
+    (sd.todos||[]).filter(t=>t.mid===mid).forEach(t=>{total++;if(t.done)done++;});
+    ((sd.keyTasks||{})[mid]||[]).forEach(k=>{total++;if(k.done)done++;});
+  });
+  return{total,done,pct:total?Math.round(done/total*100):0};
+}
 function updateStandupProgress(date,tid,val){
   const sd=CQ().standups[date];if(!sd)return;
   const t=(sd.todos||[]).find(x=>x.id===tid);if(t){t._progress=val;if(val===100)t.done=true;else if(val<100&&t.done)t.done=false;}
@@ -2199,11 +2220,17 @@ function renderHistory(){
     qs.forEach(q=>{
       const qd=STORE.quarters[q];
       const ms=qd.members||[];
-      const avg=ms.length?Math.round(ms.reduce((s,m)=>s+avgP(m),0)/ms.length):0;
+      const achieve=calcQuarterAchieve(qd);
       const isCur=q===curQ;
       const isActive=q===STORE.activeQ;
       const sdCount=Object.keys(qd.standups||{}).filter(d=>qd.standups[d].saved).length;
-      const pc=progColor(avg);
+      const totalTodos=Object.values(qd.standups||{}).reduce((s,sd)=>{
+        return s+(sd.todos||[]).length+Object.values(sd.keyTasks||{}).reduce((a,ks)=>a+ks.length,0);
+      },0);
+      const doneTodos=Object.values(qd.standups||{}).reduce((s,sd)=>{
+        return s+(sd.todos||[]).filter(t=>t.done).length+Object.values(sd.keyTasks||{}).reduce((a,ks)=>a+ks.filter(k=>k.done).length,0);
+      },0);
+      const pc=progColor(achieve);
       h+=`<div onclick="selectHistoryQ('${q}')" style="background:white;border:2px solid ${histSelQ===q?'var(--accent)':isActive?'var(--gold)':'var(--border)'};border-radius:6px;padding:18px 20px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${histSelQ===q?'var(--accent)':isActive?'var(--gold)':'var(--border)'}'">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
           <div>
@@ -2215,11 +2242,11 @@ function renderHistory(){
             ${isActive?'<span style="font-size:9px;padding:2px 7px;border-radius:2px;background:rgba(184,134,58,.15);color:var(--gold);font-family:var(--mono);font-weight:700;">보기 중</span>':''}
           </div>
         </div>
-        <div style="font-family:var(--serif);font-size:32px;font-weight:400;color:${pc};line-height:1;">${avg}<span style="font-size:14px;font-family:var(--sans);color:var(--ink3);font-weight:400;">%</span></div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:4px;">팀 평균 진척도</div>
+        <div style="font-family:var(--serif);font-size:32px;font-weight:400;color:${pc};line-height:1;">${achieve}<span style="font-size:14px;font-family:var(--sans);color:var(--ink3);font-weight:400;">%</span></div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px;">할 일 체크 달성률</div>
         <div style="margin-top:14px;display:flex;gap:14px;font-size:11px;font-family:var(--mono);color:var(--ink3);">
           <span>👤 ${ms.length}명</span>
-          <span>📋 ${ms.reduce((s,m)=>s+(m.okrs||[]).length,0)}개 OKR</span>
+          <span>✅ ${doneTodos}/${totalTodos}건</span>
           <span>📅 ${sdCount}회 회의</span>
         </div>
       </div>`;
@@ -2238,7 +2265,7 @@ function renderHistory(){
 
 function selectHistoryQ(q){
   histSelQ=q;
-  histTab='okr';
+  histTab='achieve';
   renderHistory();
 }
 
@@ -2249,7 +2276,9 @@ function renderHistoryDetail(q){
   document.getElementById('history-detail-title').textContent=`${q} · ${qd.teamName||'—'}`;
   const ms=qd.members||[];
   const avg=ms.length?Math.round(ms.reduce((s,m)=>s+avgP(m),0)/ms.length):0;
-  document.getElementById('history-detail-sub').textContent=`팀원 ${ms.length}명 · 팀 평균 ${avg}% · OKR ${ms.reduce((s,m)=>s+(m.okrs||[]).length,0)}개`;
+  const qAchieve=calcQuarterAchieve(qd);
+  const qSdCount=Object.keys(qd.standups||{}).filter(d=>qd.standups[d].saved).length;
+  document.getElementById('history-detail-sub').textContent=`팀원 ${ms.length}명 · 달성률 ${qAchieve}% · ${qSdCount}회 회의`;
   
   // 전환 버튼
   const switchBtn=document.getElementById('history-switch-btn');
@@ -2261,7 +2290,7 @@ function renderHistoryDetail(q){
   if(isActive||Object.keys(STORE.quarters).length<=1){delBtn.style.display='none';}
   else{delBtn.style.display='';delBtn.onclick=()=>deleteQuarter(q);}
 
-  switchHistoryTab(histTab||'standup', null, q);
+  switchHistoryTab(histTab||'achieve', null, q);
 }
 
 function switchHistoryTab(tab, el, q){
@@ -2272,14 +2301,63 @@ function switchHistoryTab(tab, el, q){
   if(el)el.classList.add('active');
   else{document.querySelectorAll('.history-tab').forEach(t=>{if(t.getAttribute('onclick').includes(`'${tab}'`))t.classList.add('active');});}
 
-  ['okr','compare','standup'].forEach(t=>document.getElementById('history-tab-'+t).style.display='none');
-  document.getElementById('history-tab-'+tab).style.display='block';
+  ['okr','achieve','compare','standup'].forEach(t=>{const el=document.getElementById('history-tab-'+t);if(el)el.style.display='none';});
+  const tabEl=document.getElementById('history-tab-'+tab);if(tabEl)tabEl.style.display='block';
 
-  if(tab==='okr') renderHistoryOkrTab(selQ);
+  if(tab==='achieve') renderHistoryAchieveTab(selQ);
   if(tab==='compare') renderHistoryCompareTab(selQ);
   if(tab==='standup') renderHistoryStandupTab(selQ);
 }
 
+function renderHistoryAchieveTab(q){
+  const qd=STORE.quarters[q];
+  const ms=qd.members||[];
+  const el=document.getElementById('history-tab-achieve');
+  if(!ms.length){el.innerHTML='<div class="es"><div class="ei">○</div><div>팀원 데이터가 없습니다</div></div>';return;}
+
+  const rkLabel={0:'본부장',1:'팀장',2:'파트장',3:'매니저'};
+  const sortedMs=[...ms].sort((a,b)=>(a.rank||3)-(b.rank||3));
+
+  // 전체 팀 달성률
+  const teamAchieve=calcQuarterAchieve(qd);
+  const teamPc=progColor(teamAchieve);
+
+  let h=`<div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;">팀 전체 달성률</div>
+      <div style="font-family:var(--serif);font-size:28px;font-weight:400;color:${teamPc};">${teamAchieve}<span style="font-size:14px;font-family:var(--sans);color:var(--ink3);font-weight:400;">%</span></div>
+    </div>
+    <div style="background:var(--paper);border-radius:4px;height:10px;overflow:hidden;">
+      <div style="height:100%;width:${teamAchieve}%;background:${teamPc};border-radius:4px;transition:width .5s;"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:11px;font-weight:700;color:var(--ink3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:16px;">팀원별 할 일 체크 달성률</div>`;
+
+  let lastRk=null;
+  sortedMs.forEach(m=>{
+    const rk=m.rank||3;
+    if(rk!==lastRk){
+      h+=`<div style="font-size:10px;font-weight:700;color:var(--ink3);font-family:var(--mono);letter-spacing:.06em;padding:${lastRk===null?'0':'10px'} 0 6px;${lastRk!==null?'border-top:1px solid var(--border);':''}">${rkLabel[rk]||'매니저'}</div>`;
+      lastRk=rk;
+    }
+    const {total,done,pct}=calcMemberAchieve(qd,m.id);
+    const pc=progColor(pct);
+    h+=`<div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="width:26px;height:26px;border-radius:50%;background:var(--paper2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${m.name?m.name[0]:''}</div>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${m.name}</div><div style="font-size:11px;color:var(--ink3);">${m.part||''}</div></div>
+        <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${pc};">${pct}%</div>
+        <div style="font-size:11px;color:var(--ink3);font-family:var(--mono);">${done}/${total}건</div>
+      </div>
+      <div style="background:var(--paper);border-radius:4px;height:8px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${pc};border-radius:4px;transition:width .5s;"></div>
+      </div>
+    </div>`;
+  });
+  h+=`</div>`;
+  el.innerHTML=h;
+}
 function renderHistoryOkrTab(q){
   const qd=STORE.quarters[q];
   const ms=qd.members||[];
